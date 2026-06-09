@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Invoice- Clean & Modern Invoice Generator</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Lucide Icons (pinned version to avoid source map 404 warnings) -->
+    <script src="https://unpkg.com/lucide@0.441.0/dist/umd/lucide.js"></script>
+    <!-- CSS Stylesheet -->
+    <link rel="stylesheet" href="style.css" />
+    <!-- html2pdf library -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
+      integrity="sha512-GsLlZN/3F2ErC5xQQFtT11ldTo51vECYGDK1BWwLhyVSpYhGtYOmib9d1FK98mDYG+KbddfYLFMqCF50ObwZOQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-check-compat.js"></script>
+    <script src="firebase-config.js"></script>
+  </head>
+  <body>
+    <!-- App is hidden until user authenticates -->
+    <div class="app-container" id="app-container" style="display: none">
+      <!-- Sidebar Navigation & Forms (Editor) -->
+      <aside class="sidebar-editor">
+        <!-- App Header -->
+        <div class="sidebar-header">
+          <div class="logo-area-wrapper">
+            <div class="logo-area">
+              <span class="logo-icon"><i data-lucide="file-text"></i></span>
+              <h1><span class="glyphicons glyphicons-invoice"></span></h1>
+            </div>
+            <!-- User Profile Widget (Inside Sidebar Header) -->
+            <div
+              class="user-profile-widget"
+              id="user-profile-widget"
+              style="display: none"
+            >
+              <div class="user-avatar" id="user-avatar-initials">--</div>
+              <div class="user-info">
+                <span class="user-email" id="user-display-email"
+                  >user@email.com</span
+                >
+                <span class="user-role" id="user-display-biz"
+                  >Business Account</span
+                >
+              </div>
+              <button
+                type="button"
+                class="btn-signout"
+                id="btn-signout"
+                title="Sign Out"
+              >
+                <i data-lucide="log-out"></i>
+              </button>
+            </div>
+          </div>
+          <p class="subtitle" id="app-subtitle">
+            Create professional invoices in seconds
+          </p>
+        </div>
+
+        <!-- Tab Headers -->
+        <nav class="editor-tabs">
+          <button class="tab-btn active" data-tab="tab-business">
+            <i data-lucide="briefcase"></i>
+            <span>Business</span>
+          </button>
+          <button class="tab-btn" data-tab="tab-client">
+            <i data-lucide="user"></i>
+            <span>Client</span>
+          </button>
+          <button class="tab-btn" data-tab="tab-items">
+            <i data-lucide="list-ordered"></i>
+            <span>Items</span>
+          </button>
+          <button class="tab-btn" data-tab="tab-saved">
+            <i data-lucide="folder-heart"></i>
+            <span>Saved</span>
+          </button>
+        </nav>
+
+        <!-- Tab Contents -->
+        <div class="tab-content-container">
+          <!-- Tab: Business details -->
+          <section class="tab-pane active" id="tab-business">
+            <h2 class="section-title">Your Business Details</h2>
+
+            <div class="form-group">
+              <label>Company Logo</label>
+              <div class="logo-uploader-box">
+                <label for="logo-input" class="logo-upload-label">
+                  <i data-lucide="image"></i>
+                  <span>Upload Logo (PNG, JPG)</span>
+                </label>
+                <input type="file" id="logo-input" accept="image/*" />
+                <div class="logo-preview-wrapper" style="display: none">
+                  <img id="logo-preview" src="" alt="Logo preview" />
+                  <button
+                    type="button"
+                    class="btn-remove-logo"
+                    id="btn-remove-logo"
+                  >
+                    <i data-lucide="x"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group col-span-2">
+                <label for="biz-name">Company Name</label>
+                <input
+                  type="text"
+                  id="biz-name"
+                  placeholder="e.g. Acme Corporation"
+                />
+              </div>
+              <div class="form-group">
+                <label for="biz-email">Email Address</label>
+                <input
+                  type="email"
+                  id="biz-email"
+                  placeholder="e.g. billing@acme.com"
+                />
+              </div>
+              <div class="form-group">
+                <label for="biz-phone">Phone Number</label>
+                <input
+                  type="text"
+                  id="biz-phone"
+                  placeholder="e.g. +1 (555) 000-1234"
+                />
+              </div>
+              <div class="form-group col-span-2">
+                <label for="biz-address">Address</label>
+                <textarea
+                  id="biz-address"
+                  rows="3"
+                  placeholder="e.g. 123 Business St, Suite 100, New York, NY 10001"
+                ></textarea>
+              </div>
+            </div>
+
+            <h2 class="section-title margin-top-lg">Invoice Metadata</h2>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="inv-number">Invoice Number</label>
+                <input
+                  type="text"
+                  id="inv-number"
+                  placeholder="e.g. INV-2026-001"
+                />
+              </div>
+              <div class="form-group">
+                <label for="inv-currency">Currency</label>
+                <select id="inv-currency">
+                  <option value="$">USD ($)</option>
+                  <option value="€">EUR (€)</option>
+                  <option value="£">GBP (£)</option>
+                  <option value="₹">INR (₹)</option>
+                  <option value="¥">JPY (¥)</option>
+                  <option value="A$">AUD (A$)</option>
+                  <option value="C$">CAD (C$)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="inv-date">Issue Date</label>
+                <input type="date" id="inv-date" />
+              </div>
+              <div class="form-group">
+                <label for="inv-due">Due Date</label>
+                <input type="date" id="inv-due" />
+              </div>
+            </div>
+          </section>
+
+          <!-- Tab: Client Details -->
+          <section class="tab-pane" id="tab-client">
+            <h2 class="section-title">Client Details</h2>
+
+            <div class="form-grid">
+              <div class="form-group col-span-2">
+                <label for="client-company">Client Business Name</label>
+                <input
+                  type="text"
+                  id="client-company"
+                  placeholder="e.g. Wayne Enterprises"
+                />
+              </div>
+              <div class="form-group col-span-2">
+                <label for="client-name">Primary Contact Name</label>
+                <input
+                  type="text"
+                  id="client-name"
+                  placeholder="e.g. Bruce Wayne"
+                />
+              </div>
+              <div class="form-group">
+                <label for="client-email">Email Address</label>
+                <input
+                  type="email"
+                  id="client-email"
+                  placeholder="e.g. bruce@wayne.com"
+                />
+              </div>
+              <div class="form-group">
+                <label for="client-phone">Phone Number</label>
+                <input
+                  type="text"
+                  id="client-phone"
+                  placeholder="e.g. +1 (555) 999-8888"
+                />
+              </div>
+              <div class="form-group col-span-2">
+                <label for="client-address">Billing Address</label>
+                <textarea
+                  id="client-address"
+                  rows="3"
+                  placeholder="e.g. 1007 Mountain Drive, Gotham City, NJ 07001"
+                ></textarea>
+              </div>
+            </div>
+          </section>
+
+          <!-- Tab: Items -->
+          <section class="tab-pane" id="tab-items">
+            <div class="items-header-bar">
+              <h2 class="section-title">Invoice Items</h2>
+              <button type="button" class="btn-text" id="btn-clear-items">
+                <i data-lucide="trash-2"></i> Clear All
+              </button>
+            </div>
+
+            <!-- Add New Item Form -->
+            <div class="add-item-card">
+              <div class="form-group">
+                <label for="item-desc">Item / Service Description</label>
+                <input
+                  type="text"
+                  id="item-desc"
+                  placeholder="e.g. Web Development Services"
+                />
+              </div>
+              <div class="form-grid-3">
+                <div class="form-group">
+                  <label for="item-qty">Quantity</label>
+                  <input
+                    type="number"
+                    id="item-qty"
+                    min="0.01"
+                    step="any"
+                    value="1"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="item-price">Unit Price</label>
+                  <input
+                    type="number"
+                    id="item-price"
+                    min="0"
+                    step="any"
+                    value="0.00"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="item-tax">Tax (%)</label>
+                  <input
+                    type="number"
+                    id="item-tax"
+                    min="0"
+                    max="100"
+                    step="any"
+                    value="0"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                class="btn-primary btn-block"
+                id="btn-add-item"
+              >
+                <i data-lucide="plus"></i> Add Item
+              </button>
+            </div>
+
+            <!-- Items List -->
+            <div class="items-list-container">
+              <h3>Current Items</h3>
+              <div id="items-list-placeholder" class="empty-state">
+                <i data-lucide="shopping-bag"></i>
+                <p>No items added yet</p>
+              </div>
+              <ul class="items-list" id="items-list">
+                <!-- Dynamic list of items added -->
+              </ul>
+            </div>
+
+            <h2 class="section-title margin-top-lg">Extra Configurations</h2>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="inv-discount">Discount (Fixed)</label>
+                <input
+                  type="number"
+                  id="inv-discount"
+                  min="0"
+                  step="any"
+                  value="0"
+                />
+              </div>
+              <div class="form-group">
+                <label for="inv-shipping">Shipping / Handling</label>
+                <input
+                  type="number"
+                  id="inv-shipping"
+                  min="0"
+                  step="any"
+                  value="0"
+                />
+              </div>
+              <div class="form-group col-span-2">
+                <label for="inv-notes">Payment Terms / Notes</label>
+                <textarea
+                  id="inv-notes"
+                  rows="3"
+                  placeholder="e.g. Payment due within 15 days. Bank Transfer details..."
+                ></textarea>
+              </div>
+            </div>
+          </section>
+
+          <!-- Tab: Saved Invoices -->
+          <section class="tab-pane" id="tab-saved">
+            <h2 class="section-title">Saved Invoices</h2>
+            <p class="description">
+              Access your securely saved invoices stored in the cloud.
+            </p>
+
+            <!-- Local to Cloud Migration Banner -->
+            <div
+              id="local-migration-banner"
+              class="migration-banner"
+              style="display: none"
+            >
+              <div class="migration-icon-wrap">
+                <i data-lucide="refresh-cw" class="spin"></i>
+              </div>
+              <div class="migration-text">
+                <h4>Found local invoices</h4>
+                <p>
+                  You have local invoices. Import them into your cloud account.
+                </p>
+              </div>
+              <button
+                type="button"
+                class="btn-migration-import"
+                id="btn-import-local-invoices"
+              >
+                Import
+              </button>
+            </div>
+
+            <div id="saved-invoices-placeholder" class="empty-state">
+              <i data-lucide="folder-open"></i>
+              <p>No saved invoices found</p>
+            </div>
+            <ul class="saved-invoices-list" id="saved-invoices-list">
+              <!-- Dynamic list of saved invoices -->
+            </ul>
+          </section>
+        </div>
+
+        <!-- Editor Actions Bar at bottom of sidebar -->
+        <div class="editor-footer-actions">
+          <button
+            type="button"
+            class="btn-secondary"
+            id="btn-demo-data"
+            title="Load Demo Data"
+          >
+            <i data-lucide="wand-2"></i> Demo Data
+          </button>
+          <button
+            type="button"
+            class="btn-secondary"
+            id="btn-reset-form"
+            title="Reset Current Form"
+          >
+            <i data-lucide="refresh-cw"></i> Clear
+          </button>
+          <button type="button" class="btn-primary" id="btn-save-invoice">
+            <i data-lucide="save"></i> Save Invoice
+          </button>
+        </div>
+      </aside>
+
+      <!-- Main Preview Area (A4 Invoice Rendering) -->
+      <main class="preview-viewport">
+        <!-- Floating Actions Toolbar -->
+        <div class="preview-toolbar">
+          <div class="toolbar-title">
+            <span class="pulse-indicator"></span>
+            <span>Live Preview</span>
+          </div>
+          <div class="toolbar-actions">
+            <button type="button" class="btn-toolbar" id="btn-print-invoice">
+              <i data-lucide="printer"></i> Print
+            </button>
+            <button
+              type="button"
+              class="btn-toolbar btn-toolbar-accent"
+              id="btn-download-pdf"
+            >
+              <i data-lucide="download"></i> Download PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- Page Container (Centered, shadow, matches dimensions) -->
+        <div class="invoice-container-outer">
+          <div class="invoice-paper" id="invoice-paper">
+            <!-- Top Accent Strip -->
+            <div class="invoice-accent-strip"></div>
+
+            <!-- Invoice Header Section -->
+            <header class="invoice-header">
+              <div class="biz-branding">
+                <div
+                  class="invoice-logo-container"
+                  id="inv-preview-logo-container"
+                  style="display: none"
+                >
+                  <img id="inv-preview-logo" src="" alt="Company Logo" />
+                </div>
+                <div class="biz-info-text">
+                  <h2 id="preview-biz-name" class="fallback-placeholder">
+                    Your Company Name
+                  </h2>
+                  <p id="preview-biz-email" class="sub-detail">
+                    email@company.com
+                  </p>
+                  <p id="preview-biz-phone" class="sub-detail">
+                    +1 (555) 000-1234
+                  </p>
+                  <p id="preview-biz-address" class="sub-detail address-field">
+                    123 Street Address, City, State
+                  </p>
+                </div>
+              </div>
+
+              <div class="invoice-meta">
+                <h1>INVOICE</h1>
+                <div class="meta-grid">
+                  <div class="meta-label">Invoice No:</div>
+                  <div class="meta-value" id="preview-inv-number">
+                    INV-00000
+                  </div>
+
+                  <div class="meta-label">Date:</div>
+                  <div class="meta-value" id="preview-inv-date">YYYY-MM-DD</div>
+
+                  <div class="meta-label">Due Date:</div>
+                  <div class="meta-value" id="preview-inv-due">YYYY-MM-DD</div>
+
+                  <div class="meta-label highlight">Balance Due:</div>
+                  <div
+                    class="meta-value highlight balance-due-large"
+                    id="preview-balance-due"
+                  >
+                    $0.00
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            <!-- Client Billing Details -->
+            <section class="invoice-billing">
+              <div class="billing-col">
+                <h3>Bill To:</h3>
+                <div class="client-info-text">
+                  <h4 id="preview-client-company" class="fallback-placeholder">
+                    Client Company Name
+                  </h4>
+                  <p id="preview-client-name" class="client-contact">
+                    Contact Name
+                  </p>
+                  <p id="preview-client-email" class="sub-detail">
+                    client@email.com
+                  </p>
+                  <p id="preview-client-phone" class="sub-detail">
+                    +1 (555) 000-0000
+                  </p>
+                  <p
+                    id="preview-client-address"
+                    class="sub-detail address-field"
+                  >
+                    Billing Address, City, State
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <!-- Items Table -->
+            <table class="invoice-table">
+              <thead>
+                <tr>
+                  <th>Item Description</th>
+                  <th class="text-right">Qty</th>
+                  <th class="text-right">Rate</th>
+                  <th class="text-right">Tax</th>
+                  <th class="text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="preview-table-body">
+                <!-- Dynamic Row Render -->
+                <tr>
+                  <td colspan="5" class="empty-table-placeholder">
+                    Add line items to populate this table
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Summary & Terms -->
+            <footer class="invoice-summary-footer">
+              <div class="notes-and-terms">
+                <h3>Notes & Payment Terms</h3>
+                <p id="preview-inv-notes" class="notes-content">
+                  Payment is due upon receipt unless specified. Thank you!
+                </p>
+              </div>
+
+              <div class="summary-breakdown">
+                <div class="summary-row">
+                  <span>Subtotal</span>
+                  <span id="preview-subtotal">$0.00</span>
+                </div>
+                <div class="summary-row">
+                  <span>Tax Total</span>
+                  <span id="preview-tax-total">$0.00</span>
+                </div>
+                <div
+                  class="summary-row"
+                  id="preview-discount-row"
+                  style="display: none"
+                >
+                  <span>Discount</span>
+                  <span id="preview-discount">-$0.00</span>
+                </div>
+                <div
+                  class="summary-row"
+                  id="preview-shipping-row"
+                  style="display: none"
+                >
+                  <span>Shipping</span>
+                  <span id="preview-shipping">+$0.00</span>
+                </div>
+                <div class="summary-row grand-total">
+                  <span>Total Amount</span>
+                  <span id="preview-grand-total">$0.00</span>
+                </div>
+              </div>
+            </footer>
+
+            <!-- Decorative Clean Footer -->
+            <div class="invoice-bottom-bar">
+              <div class="divider"></div>
+              <p class="thank-you-msg">Thank you for your business!</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Authentication Screen Overlay (shown by default, hidden after sign-in) -->
+    <div id="auth-container" class="auth-wrapper">
+      <div class="auth-card animate-fadeIn">
+        <!-- App Logo Area -->
+        <div class="auth-header">
+          <div class="logo-area center">
+            <span class="logo-icon"><i data-lucide="file-text"></i></span>
+            <h1><span class="glyphicons glyphicons-invoice"></span>Invoice</h1>
+          </div>
+          <p id="auth-subtitle" class="subtitle">
+            Create professional invoices in seconds
+          </p>
+        </div>
+
+        <!-- Configuration Alert (Visible when Firebase is not setup) -->
+        <div
+          id="firebase-setup-banner"
+          class="auth-banner warning"
+          style="display: none"
+        >
+          <i data-lucide="alert-triangle"></i>
+          <div class="banner-text">
+            <h4>Firebase not configured</h4>
+            <p>
+              Click <a href="#" id="link-open-config">here</a> to connect your
+              project.
+            </p>
+          </div>
+        </div>
+
+        <!-- Main Auth Forms Pane -->
+        <div id="auth-forms-pane">
+          <!-- Tabs -->
+          <div class="auth-tabs">
+            <button
+              type="button"
+              class="auth-tab-btn active"
+              id="btn-tab-signin"
+            >
+              Sign In
+            </button>
+            <button type="button" class="auth-tab-btn" id="btn-tab-signup">
+              Sign Up
+            </button>
+          </div>
+
+          <!-- Sign In Form -->
+          <form id="signin-form" class="auth-form">
+            <div class="form-group">
+              <label for="signin-email">Email Address</label>
+              <input
+                type="email"
+                id="signin-email"
+                required
+                placeholder="name@company.com"
+              />
+            </div>
+            <div class="form-group">
+              <label for="signin-password">Password</label>
+              <input
+                type="password"
+                id="signin-password"
+                required
+                placeholder="••••••••"
+              />
+            </div>
+            <button
+              type="submit"
+              class="btn-primary btn-block"
+              id="btn-signin-submit"
+            >
+              <span>Sign In</span> <i data-lucide="arrow-right"></i>
+            </button>
+          </form>
+
+          <!-- Sign Up Form -->
+          <form id="signup-form" class="auth-form" style="display: none">
+            <div class="form-group">
+              <label for="signup-bizname">Company / Business Name</label>
+              <input
+                type="text"
+                id="signup-bizname"
+                required
+                placeholder="e.g. Acme Corporation"
+              />
+            </div>
+            <div class="form-group">
+              <label for="signup-email">Email Address</label>
+              <input
+                type="email"
+                id="signup-email"
+                required
+                placeholder="name@company.com"
+              />
+            </div>
+            <div class="form-group">
+              <label for="signup-password">Password</label>
+              <input
+                type="password"
+                id="signup-password"
+                required
+                placeholder="At least 6 characters"
+              />
+            </div>
+            <div class="form-group">
+              <label for="signup-confirm-password">Confirm Password</label>
+              <input
+                type="password"
+                id="signup-confirm-password"
+                required
+                placeholder="••••••••"
+              />
+            </div>
+            <button
+              type="submit"
+              class="btn-primary btn-block"
+              id="btn-signup-submit"
+            >
+              <span>Create Account</span> <i data-lucide="user-plus"></i>
+            </button>
+          </form>
+        </div>
+
+        <!-- Firebase Config Editor Pane (Hidden by default) -->
+        <div id="firebase-config-pane" style="display: none">
+          <div class="config-header">
+            <button type="button" class="btn-icon-back" id="btn-back-to-auth">
+              <i data-lucide="chevron-left"></i> Back
+            </button>
+            <h3>Firebase Settings</h3>
+          </div>
+          <p class="config-desc">
+            Connect Invoicr to your own Firebase Web App. Copy the configuration
+            details from your Firebase Console.
+          </p>
+
+          <form id="firebase-config-form" class="auth-form">
+            <div class="form-grid">
+              <div class="form-group col-span-2">
+                <label for="cfg-apikey">API Key*</label>
+                <input
+                  type="text"
+                  id="cfg-apikey"
+                  required
+                  placeholder="AIzaSy..."
+                />
+              </div>
+              <div class="form-group col-span-2">
+                <label for="cfg-projectid">Project ID*</label>
+                <input
+                  type="text"
+                  id="cfg-projectid"
+                  required
+                  placeholder="my-invoice-app"
+                />
+              </div>
+              <div class="form-group">
+                <label for="cfg-authdomain">Auth Domain</label>
+                <input
+                  type="text"
+                  id="cfg-authdomain"
+                  placeholder="my-invoice-app.firebaseapp.com"
+                />
+              </div>
+              <div class="form-group">
+                <label for="cfg-storagebucket">Storage Bucket</label>
+                <input
+                  type="text"
+                  id="cfg-storagebucket"
+                  placeholder="my-invoice-app.appspot.com"
+                />
+              </div>
+              <div class="form-group">
+                <label for="cfg-msgid">Sender ID</label>
+                <input type="text" id="cfg-msgid" placeholder="8537294..." />
+              </div>
+              <div class="form-group">
+                <label for="cfg-appid">App ID</label>
+                <input
+                  type="text"
+                  id="cfg-appid"
+                  placeholder="1:85372:web:a7d..."
+                />
+              </div>
+            </div>
+
+            <div class="config-actions">
+              <button type="button" class="btn-secondary" id="btn-clear-config">
+                Clear Custom
+              </button>
+              <button type="submit" class="btn-primary" id="btn-save-config">
+                Save Settings
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Footer: Config toggle / links -->
+        <div class="auth-footer">
+          <span id="auth-switch-text"
+            >Don't have an account?
+            <a href="#" id="link-switch-signup">Sign up</a></span
+          >
+          <span id="auth-config-toggle-link"
+            ><a href="#" id="link-open-config-footer"
+              ><i data-lucide="settings"></i> Firebase Settings</a
+            ></span
+          >
+        </div>
+      </div>
+    </div> 
+
+    <!-- Notification Toast Element -->
+    <div id="toast" class="toast-notification">Invoice Saved successfully!</div>
+
+    <!-- Javascript Logic -->
+    <script src="app.js"></script>
+  </body>
+</html>
